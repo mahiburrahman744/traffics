@@ -1,2 +1,3 @@
-playwright
-fake-useragent
+pip install playwright
+playwright install
+pip install fake-useragent
