@@ -125,9 +125,13 @@ def simulate_traffic(url):
         while True:
             page = send_request_and_render(url, playwright)
             if page:
-                simulate_scrolling(page)
-                simulate_interactions(page)
-                page.context.close()  # Close the context to ensure resources are released
+                try:
+                    simulate_scrolling(page)
+                    simulate_interactions(page)
+                except Exception as e:
+                    print(f"Interaction simulation failed: {e}")
+                finally:
+                    page.context.close()  # Close the context to ensure resources are released
             time.sleep(random.uniform(1, 5))
 
 # Main function
