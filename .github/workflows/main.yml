@@ -20,7 +20,7 @@ jobs:
           sudo apt-get install -y libwoff1 libopus0 libvpx5 libevent-2.1-7 \
           libgstreamer1.0-0 libgstreamer-plugins-base1.0-0 libgstreamer-gl1.0-0 \
           libharfbuzz-icu0 libhyphen0 libgles2 libx264-160 \
-          libflite1 libflite1-dev
+          libflite1
 
       - name: Set up Python
         uses: actions/setup-python@v2
