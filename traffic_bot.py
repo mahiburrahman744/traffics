@@ -1,128 +1,120 @@
-import requests
-from fake_useragent import UserAgent
-import time
+import asyncio
 import random
-from playwright.sync_api import sync_playwright
+import lxml.html
+import tldextract
+import httpx
+from fake_useragent import UserAgent
+import os
+import requests
 
-# Define user agent pools
-user_agents = {
-    "mobile": [
-        'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1',
-        'Mozilla/5.0 (Linux; Android 11; Pixel 5 Build/RQ3A.210705.001) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Mobile Safari/537.36',
-        'Mozilla/5.0 (Linux; Android 10; SM-G975F Build/QP1A.190711.020) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.106 Mobile Safari/537.36'
-    ],
-    "tablet": [
-        'Mozilla/5.0 (iPad; CPU OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1',
-        'Mozilla/5.0 (Linux; Android 9; Nexus 7 Build/PPR1.180610.011) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36',
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64; Tablet PC) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-    ],
-    "desktop": [
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 11_2_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+class Header:
+    screen_resolution = [
+        '800×600', '1024×768', '1152×864', '1280×1024', '1440×900', '1680×1050', '1920×1080'
     ]
-}
 
-# Define referrer platforms
-referrer_platforms = [
-    'https://www.google.com',
-    'https://www.facebook.com',
-    'https://www.twitter.com',
-    'https://www.linkedin.com',
-    'https://www.instagram.com',
-    'https://www.pinterest.com',
-    'https://www.reddit.com',
-    'https://www.bing.com',
-    'https://www.yahoo.com',
-    'https://www.baidu.com'
-]
+    def generate_header_list(self, num_headers):
+        headers = []
+        ua = UserAgent()
+        for _ in range(num_headers):
+            headers.append({
+                'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+                'accept-encoding': 'gzip, deflate, br',
+                'cache-control': 'max-age=0',
+                'connection': 'keep-alive',
+                'upgrade-insecure-requests': '1',
+                'user-agent': ua.random
+            })
+        return headers
 
-# Function to get a random user-agent
-def get_random_user_agent():
-    device_type = random.choice(list(user_agents.keys()))
-    return random.choice(user_agents[device_type])
+class GetProxy:
+    def get_proxy(self, http='proxies.txt'):
+        if os.path.exists(http):
+            with open(http, 'r') as file:
+                proxies = file.read().splitlines()
+            return proxies
+        else:
+            response = requests.get('https://www.proxy-list.download/api/v1/get?type=http')
+            proxies = response.text.splitlines()
+            with open(http, 'w') as file:
+                file.write("\n".join(proxies))
+            return proxies
 
-# Function to get a random referrer
-def get_random_referrer():
-    return random.choice(referrer_platforms)
+class RateUp(Header, GetProxy):
 
-# Function to send a request and render JavaScript with retries
-def send_request_and_render(url, playwright, retries=3):
-    for attempt in range(retries):
+    def __init__(self):
+        self.min_time = 62
+        self.max_time = 146
+        self.good = 0
+        self.bad = 0
+
+    async def go_to_url(self, proxy, header, url_list, resolution, semaphore):
+        site_url = random.choice(url_list)
+        links_from_site = []
+        ext = tldextract.extract(site_url)
+        async with semaphore:
+            try:
+                status = await self.validation_proxy(proxy, header)
+                if status['status']:
+                    self.good += 1
+                    async with httpx.AsyncClient(proxies={"http": proxy, "https": proxy}, headers=header, timeout=10) as client:
+                        domain = site_url
+                        for i in range(0, random.choice([2, 3, 4, 5, 6])):
+                            if ext.subdomain:
+                                header['host'] = f'{ext.subdomain}.{ext.domain}.{ext.suffix}'
+                            else:
+                                header['host'] = f'{ext.domain}.{ext.suffix}'
+                            try:
+                                response = await client.get(domain)
+                                content = response.text
+                                print(f'{resolution} | {status["country"]} | {domain} | {proxy} | {header}')
+                                header['referer'] = domain
+                                html = lxml.html.fromstring(content)
+                                all_urls = html.xpath('//a/@href')
+                                await asyncio.sleep(random.uniform(self.min_time, self.max_time))
+                                for u in all_urls:
+                                    if f'{ext.domain}.{ext.suffix}' in u:
+                                        links_from_site.append(u)
+                                if domain in links_from_site:
+                                    links_from_site.remove(domain)
+                                domain = random.choice(links_from_site)
+                            except:
+                                domain = random.choice(url_list)
+            except:
+                self.bad += 1
+
+    async def validation_proxy(self, proxy, header):
         try:
-            user_agent = get_random_user_agent()
-            referrer = get_random_referrer()
-            browser = playwright.chromium.launch(headless=True)
-            context = browser.new_context(user_agent=user_agent)
-            page = context.new_page()
-            page.set_extra_http_headers({'Referer': referrer})
-            page.goto(url, timeout=60000)  # Set a longer timeout for navigation
-            page.wait_for_load_state("networkidle")  # Wait for the page to load completely
-            
-            print(f"Page title: {page.title()}, User-Agent: {user_agent}, Referrer: {referrer}")
-            return page
-        except Exception as e:
-            print(f"Request attempt {attempt + 1} failed: {e}")
-            if attempt == retries - 1:
-                return None
-            time.sleep(5)  # Wait before retrying
+            async with httpx.AsyncClient(proxies={"http": proxy, "https": proxy}, headers=header, timeout=10) as client:
+                response = await client.get('http://www.google.com')
+                if response.status_code == 200:
+                    return {"status": True, "country": response.headers.get('X-Geo-Country', 'Unknown')}
+        except:
+            return {"status": False}
+        return {"status": False}
 
-# Function to simulate scrolling
-def simulate_scrolling(page):
-    scroll_script = """
-        var totalHeight = 0;
-        var distance = 100;
-        var scrollDown = true;
-        var timer = setInterval(function() {
-            var scrollHeight = document.body.scrollHeight;
-            if (scrollDown) {
-                window.scrollBy(0, distance);
-                totalHeight += distance;
-                if (totalHeight >= scrollHeight){
-                    scrollDown = false;
-                    totalHeight = 0;
-                }
-            } else {
-                window.scrollBy(0, -distance);
-                totalHeight += distance;
-                if (totalHeight >= scrollHeight){
-                    clearInterval(timer);
-                }
-            }
-        }, 100);
-    """
-    try:
-        page.evaluate(scroll_script)
-        time.sleep(random.uniform(5, 10))  # Wait after scrolling down and up
-    except Exception as e:
-        print(f"Scrolling simulation failed: {e}")
+    async def main(self, proxy_list_for_site, header_list, url_list):
+        semaphore = asyncio.Semaphore(20)
+        queue = asyncio.Queue()
+        task_list = []
 
-# Function to simulate additional interactions
-def simulate_interactions(page):
-    interaction_scripts = [
-        "document.querySelector('a') && document.querySelector('a').click();",
-        "document.querySelector('button') && document.querySelector('button').click();",
-        "document.querySelector('input') && (document.querySelector('input').value = 'test');"
-    ]
-    try:
-        for script in interaction_scripts:
-            page.evaluate(f"() => {{{script}}}")
-        time.sleep(random.uniform(2, 5))  # Wait after interaction
-    except Exception as e:
-        print(f"Interaction simulation failed: {e}")
+        for proxy in proxy_list_for_site:
+            resolution = random.choice(Header.screen_resolution)
+            header = random.choice(header_list)
+            task = asyncio.create_task(self.go_to_url(proxy, header, url_list, resolution, semaphore))
+            task_list.append(task)
+            await asyncio.sleep(0.5)
 
-# Function to simulate traffic
-def simulate_traffic(url):
-    with sync_playwright() as playwright:
-        while True:
-            page = send_request_and_render(url, playwright)
-            if page:
-                simulate_scrolling(page)
-                simulate_interactions(page)
-                page.context.close()  # Close the context to ensure resources are released
-            time.sleep(random.uniform(1, 5))
+        await queue.join()
+        await asyncio.gather(*task_list, return_exceptions=True)
+        print(f'Good visits: {self.good}')
+        print(f'Bad visits: {self.bad}')
 
-# Main function
+    def start(self, proxies, header_list, site_url):
+        asyncio.run(self.main(proxies, header_list, site_url))
+
 if __name__ == "__main__":
-    url = "https://www.highrevenuenetwork.com/iaqgtx69y1?key=14a1e46999747270c942f2634ef5306a"
-    simulate_traffic(url)
+    proxies = GetProxy().get_proxy(http='proxies.txt')
+    headers = Header().generate_header_list(10)
+    urls = ['https://www.highrevenuenetwork.com/iaqgtx69y1?key=14a1e46999747270c942f2634ef5306a']
+    rateup = RateUp()
+    rateup.start(proxies, headers, urls)
