@@ -3,41 +3,9 @@ import random
 import lxml.html
 import tldextract
 import httpx
-from fake_useragent import UserAgent
-import os
-import requests
-
-class Header:
-    screen_resolution = [
-        '800×600', '1024×768', '1152×864', '1280×1024', '1440×900', '1680×1050', '1920×1080'
-    ]
-
-    def generate_header_list(self, num_headers):
-        headers = []
-        ua = UserAgent()
-        for _ in range(num_headers):
-            headers.append({
-                'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
-                'accept-encoding': 'gzip, deflate, br',
-                'cache-control': 'max-age=0',
-                'connection': 'keep-alive',
-                'upgrade-insecure-requests': '1',
-                'user-agent': ua.random
-            })
-        return headers
-
-class GetProxy:
-    def get_proxy(self, http='proxies.txt'):
-        if os.path.exists(http):
-            with open(http, 'r') as file:
-                proxies = file.read().splitlines()
-            return proxies
-        else:
-            response = requests.get('https://www.proxy-list.download/api/v1/get?type=http')
-            proxies = response.text.splitlines()
-            with open(http, 'w') as file:
-                file.write("\n".join(proxies))
-            return proxies
+from class_proxy import GetProxy
+from class_header import Header
+from fake_useragent import UserAgent, FakeUserAgentError
 
 class RateUp(Header, GetProxy):
 
@@ -46,6 +14,15 @@ class RateUp(Header, GetProxy):
         self.max_time = 146
         self.good = 0
         self.bad = 0
+        self.user_agent = self.get_user_agent()
+
+    def get_user_agent(self):
+        try:
+            ua = UserAgent()
+            return ua.random
+        except FakeUserAgentError:
+            # Fallback user agent
+            return "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
 
     async def go_to_url(self, proxy, header, url_list, resolution, semaphore):
         site_url = random.choice(url_list)
@@ -56,7 +33,7 @@ class RateUp(Header, GetProxy):
                 status = await self.validation_proxy(proxy, header)
                 if status['status']:
                     self.good += 1
-                    async with httpx.AsyncClient(proxies={"http": proxy, "https": proxy}, headers=header, timeout=10) as client:
+                    async with httpx.AsyncClient(proxies=proxy, headers=header, timeout=10) as client:
                         domain = site_url
                         for i in range(0, random.choice([2, 3, 4, 5, 6])):
                             if ext.subdomain:
@@ -82,16 +59,6 @@ class RateUp(Header, GetProxy):
             except:
                 self.bad += 1
 
-    async def validation_proxy(self, proxy, header):
-        try:
-            async with httpx.AsyncClient(proxies={"http": proxy, "https": proxy}, headers=header, timeout=10) as client:
-                response = await client.get('http://www.google.com')
-                if response.status_code == 200:
-                    return {"status": True, "country": response.headers.get('X-Geo-Country', 'Unknown')}
-        except:
-            return {"status": False}
-        return {"status": False}
-
     async def main(self, proxy_list_for_site, header_list, url_list):
         semaphore = asyncio.Semaphore(20)
         queue = asyncio.Queue()
@@ -100,6 +67,7 @@ class RateUp(Header, GetProxy):
         for proxy in proxy_list_for_site:
             resolution = random.choice(Header.screen_resolution)
             header = random.choice(header_list)
+            header['User-Agent'] = self.user_agent
             task = asyncio.create_task(self.go_to_url(proxy, header, url_list, resolution, semaphore))
             task_list.append(task)
             await asyncio.sleep(0.5)
