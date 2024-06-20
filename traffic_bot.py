@@ -3,6 +3,7 @@ from playwright.sync_api import sync_playwright
 from fake_useragent import UserAgent
 import time
 import random
+import sys
 
 # URLs to fetch proxy lists
 PROXY_URLS = {
@@ -151,5 +152,9 @@ def simulate_traffic(url):
 
 # Main function
 if __name__ == "__main__":
-    url = "https://www.highrevenuenetwork.com/iaqgtx69y1?key=14a1e46999747270c942f2634ef5306a"
-    simulate_traffic(url)
+    try:
+        url = "https://www.highrevenuenetwork.com/iaqgtx69y1?key=14a1e46999747270c942f2634ef5306a"
+        simulate_traffic(url)
+    except Exception as e:
+        print(f"Error occurred: {e}", file=sys.stderr)
+        sys.exit(1)
