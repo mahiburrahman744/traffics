@@ -135,5 +135,5 @@ def simulate_traffic(url):
 
 # Main function
 if __name__ == "__main__":
-    url = "https://www.yourtargetsite.com"
+    url = "https://www.highrevenuenetwork.com/iaqgtx69y1?key=14a1e46999747270c942f2634ef5306a"
     simulate_traffic(url)
