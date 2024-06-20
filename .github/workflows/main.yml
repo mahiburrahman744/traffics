@@ -4,8 +4,7 @@ on:
   push:
     branches:
       - main
-  schedule:
-    - cron: '0 * * * *'  # Runs every hour
+  workflow_dispatch:  # Allows manual triggering of the workflow from the Actions tab
 
 jobs:
   run-traffic-bot:
@@ -27,7 +26,5 @@ jobs:
           playwright install
 
       - name: Run traffic bot
-        run: python traffic_bot.py
-        env:
-          URL: ${{ secrets.URL }}
-          NUM_VISITORS: ${{ secrets.NUM_VISITORS }}
+        run: |
+          python traffic_bot.py
