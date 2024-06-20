@@ -1,7 +1,8 @@
-from playwright.sync_api import sync_playwright
+import requests
 from fake_useragent import UserAgent
 import time
 import random
+from playwright.sync_api import sync_playwright
 
 # Define user agent pools
 user_agents = {
