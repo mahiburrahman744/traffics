@@ -1,6 +1,34 @@
+import requests
 from playwright.sync_api import sync_playwright
-import random
+from fake_useragent import UserAgent
 import time
+import random
+
+# URLs to fetch proxy lists
+PROXY_URLS = {
+    "socks5": "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/socks5.txt",
+    "socks4": "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/socks4.txt",
+    "http": "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/http.txt"
+}
+
+# Function to fetch proxies from URLs
+def fetch_proxies():
+    proxies = []
+    for proxy_type, url in PROXY_URLS.items():
+        response = requests.get(url)
+        if response.status_code == 200:
+            proxies.extend([f"{proxy_type}://{line.strip()}" for line in response.text.splitlines()])
+    random.shuffle(proxies)
+    return proxies
+
+# Get the proxy list
+proxy_list = fetch_proxies()
+
+# Function to get a random proxy from the list
+def get_random_proxy():
+    if not proxy_list:
+        raise Exception("Proxy list is empty")
+    return proxy_list.pop()
 
 # Define user agent pools
 user_agents = {
@@ -44,67 +72,57 @@ def get_random_user_agent():
 def get_random_referrer():
     return random.choice(referrer_platforms)
 
-# Function to get a random geo-location
-def get_random_geolocation():
-    # Expanded list of geo-locations (100 locations)
-    locations = [
-        {'latitude': 34.0522, 'longitude': -118.2437},  # Los Angeles, USA
-        {'latitude': 40.7128, 'longitude': -74.0060},   # New York, USA
-        {'latitude': 48.8566, 'longitude': 2.3522},     # Paris, France
-        {'latitude': 35.6895, 'longitude': 139.6917},   # Tokyo, Japan
-        {'latitude': 51.5074, 'longitude': -0.1278},    # London, UK
-        {'latitude': 55.7558, 'longitude': 37.6173},    # Moscow, Russia
-        {'latitude': 39.9042, 'longitude': 116.4074},   # Beijing, China
-        {'latitude': -33.8688, 'longitude': 151.2093},  # Sydney, Australia
-        {'latitude': -23.5505, 'longitude': -46.6333},  # São Paulo, Brazil
-        {'latitude': 19.4326, 'longitude': -99.1332},   # Mexico City, Mexico
-        {'latitude': 28.6139, 'longitude': 77.2090},    # New Delhi, India
-        {'latitude': 55.6761, 'longitude': 12.5683},    # Copenhagen, Denmark
-        {'latitude': 52.5200, 'longitude': 13.4050},    # Berlin, Germany
-        {'latitude': -34.6037, 'longitude': -58.3816},  # Buenos Aires, Argentina
-        {'latitude': 37.7749, 'longitude': -122.4194},  # San Francisco, USA
-        {'latitude': 1.3521, 'longitude': 103.8198},    # Singapore
-        {'latitude': 41.8781, 'longitude': -87.6298},   # Chicago, USA
-        {'latitude': 31.2304, 'longitude': 121.4737},   # Shanghai, China
-        {'latitude': 59.3293, 'longitude': 18.0686},    # Stockholm, Sweden
-        {'latitude': -26.2041, 'longitude': 28.0473},   # Johannesburg, South Africa
-        {'latitude': 45.4215, 'longitude': -75.6919},   # Ottawa, Canada
-        {'latitude': 25.2048, 'longitude': 55.2708},    # Dubai, UAE
-        {'latitude': 30.0444, 'longitude': 31.2357},    # Cairo, Egypt
-        {'latitude': 41.9028, 'longitude': 12.4964},    # Rome, Italy
-        {'latitude': 50.4501, 'longitude': 30.5234},    # Kyiv, Ukraine
-        {'latitude': -33.9249, 'longitude': 18.4241},   # Cape Town, South Africa
-        {'latitude': 14.5995, 'longitude': 120.9842},   # Manila, Philippines
-        {'latitude': 13.7563, 'longitude': 100.5018},   # Bangkok, Thailand
-        {'latitude': 35.6897, 'longitude': 51.3890},    # Tehran, Iran
-        {'latitude': 37.9838, 'longitude': 23.7275},    # Athens, Greece
-        # (70 more locations to be added to meet 100 locations requirement)
-    ]
-    return random.choice(locations)
-
-
-# Function to send a request and render JavaScript with retries
+# Function to send a request and render JavaScript with retries and rotating proxies
 def send_request_and_render(url, playwright, retries=3):
     for attempt in range(retries):
         try:
-            geolocation = get_random_geolocation()
+            proxy = get_random_proxy()
             user_agent = get_random_user_agent()
             referrer = get_random_referrer()
-            browser = playwright.chromium.launch(headless=True)
-            context = browser.new_context(user_agent=user_agent, geolocation=geolocation, permissions=['geolocation'])
+            browser = playwright.chromium.launch(headless=True, proxy={"server": proxy})
+            context = browser.new_context(user_agent=user_agent)
             page = context.new_page()
             page.set_extra_http_headers({'Referer': referrer})
-            page.goto(url, timeout=60000)
-            page.wait_for_load_state("networkidle")
-            if page.is_navigating():
-                page.wait_for_load_state("networkidle")
-            print(f"Page title: {page.title()}, Geolocation: {geolocation}, User-Agent: {user_agent}, Referrer: {referrer}")
+            page.goto(url, timeout=60000)  # Set a longer timeout for navigation
+            page.wait_for_load_state("networkidle")  # Wait for the page to load completely
+            
+            print(f"Page title: {page.title()}, Proxy: {proxy}, User-Agent: {user_agent}, Referrer: {referrer}")
             return page
         except Exception as e:
-            print(f"Request attempt {attempt + 1} failed: {e}")
+            print(f"Request attempt {attempt + 1} with proxy {proxy} failed: {e}")
             if attempt == retries - 1:
                 return None
-            time.sleep(5)
+            time.sleep(5)  # Wait before retrying
+
+# Function to simulate scrolling
+def simulate_scrolling(page):
+    scroll_script = """
+        var totalHeight = 0;
+        var distance = 100;
+        var scrollDown = true;
+        var timer = setInterval(function() {
+            var scrollHeight = document.body.scrollHeight;
+            if (scrollDown) {
+                window.scrollBy(0, distance);
+                totalHeight += distance;
+                if (totalHeight >= scrollHeight){
+                    scrollDown = false;
+                    totalHeight = 0;
+                }
+            } else {
+                window.scrollBy(0, -distance);
+                totalHeight += distance;
+                if (totalHeight >= scrollHeight){
+                    clearInterval(timer);
+                }
+            }
+        }, 100);
+    """
+    try:
+        page.evaluate(scroll_script)
+        time.sleep(random.uniform(5, 10))  # Wait after scrolling down and up
+    except Exception as e:
+        print(f"Scrolling simulation failed: {e}")
 
 # Function to simulate additional interactions
 def simulate_interactions(page):
@@ -115,14 +133,10 @@ def simulate_interactions(page):
     ]
     try:
         for script in interaction_scripts:
-            # Check if page is navigating and wait if necessary
-            if page.is_navigating():
-                page.wait_for_load_state("networkidle")
             page.evaluate(f"() => {{{script}}}")
         time.sleep(random.uniform(2, 5))  # Wait after interaction
     except Exception as e:
         print(f"Interaction simulation failed: {e}")
-
 
 # Function to simulate traffic
 def simulate_traffic(url):
@@ -130,12 +144,9 @@ def simulate_traffic(url):
         while True:
             page = send_request_and_render(url, playwright)
             if page:
-                try:
-                    simulate_interactions(page)
-                except Exception as e:
-                    print(f"Interaction simulation failed: {e}")
-                finally:
-                    page.context.close()  # Close the context to ensure resources are released
+                simulate_scrolling(page)
+                simulate_interactions(page)
+                page.context.close()  # Close the context to ensure resources are released
             time.sleep(random.uniform(1, 5))
 
 # Main function
