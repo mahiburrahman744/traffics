@@ -1,3 +1,2 @@
 playwright
 fake-useragent
-requests
