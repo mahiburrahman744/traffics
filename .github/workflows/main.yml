@@ -1,33 +1,30 @@
-name: Visit URL with Proxies
+name: Run RateUp Script
 
 on:
   push:
     branches:
       - main
-  schedule:
-    - cron: '0 * * * *'  # This will run the workflow every hour
-  workflow_dispatch:  # This allows manual triggering
+  pull_request:
+    branches:
+      - main
 
 jobs:
   run-script:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v2
-      
+    - name: Checkout code
+      uses: actions/checkout@v4
+
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
-        python-version: '3.x'
-        
+        python-version: '3.8'
+
     - name: Install dependencies
       run: |
-        sudo apt-get update
-        sudo apt-get install -y libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libxkbcommon0 libxcomposite1 libxrandr2 libgbm1 libpango-1.0-0 libasound2 libgtk-3-0
         python -m pip install --upgrade pip
-        pip install requests fake-useragent playwright
-        python -m playwright install
+        pip install -r requirements.txt
 
-    - name: Run visit script
-      run: python visit_script.py
+    - name: Run the script
+      run: python rate_up.py
