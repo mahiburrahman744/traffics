@@ -96,7 +96,8 @@ def send_request_and_render(url, playwright, retries=3):
             page.set_extra_http_headers({'Referer': referrer})
             page.goto(url, timeout=60000)
             page.wait_for_load_state("networkidle")
-            
+            if page.is_navigating():
+                page.wait_for_load_state("networkidle")
             print(f"Page title: {page.title()}, Geolocation: {geolocation}, User-Agent: {user_agent}, Referrer: {referrer}")
             return page
         except Exception as e:
@@ -114,10 +115,14 @@ def simulate_interactions(page):
     ]
     try:
         for script in interaction_scripts:
+            # Check if page is navigating and wait if necessary
+            if page.is_navigating():
+                page.wait_for_load_state("networkidle")
             page.evaluate(f"() => {{{script}}}")
         time.sleep(random.uniform(2, 5))  # Wait after interaction
     except Exception as e:
         print(f"Interaction simulation failed: {e}")
+
 
 # Function to simulate traffic
 def simulate_traffic(url):
