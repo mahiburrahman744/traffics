@@ -1,35 +1,7 @@
-import requests
 from playwright.sync_api import sync_playwright
 from fake_useragent import UserAgent
 import time
 import random
-import sys
-
-# URLs to fetch proxy lists
-PROXY_URLS = {
-    "socks5": "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/socks5.txt",
-    "socks4": "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/socks4.txt",
-    "http": "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/http.txt"
-}
-
-# Function to fetch proxies from URLs
-def fetch_proxies():
-    proxies = []
-    for proxy_type, url in PROXY_URLS.items():
-        response = requests.get(url)
-        if response.status_code == 200:
-            proxies.extend([f"{proxy_type}://{line.strip()}" for line in response.text.splitlines()])
-    random.shuffle(proxies)
-    return proxies
-
-# Get the proxy list
-proxy_list = fetch_proxies()
-
-# Function to get a random proxy from the list
-def get_random_proxy():
-    if not proxy_list:
-        raise Exception("Proxy list is empty")
-    return proxy_list.pop()
 
 # Define user agent pools
 user_agents = {
@@ -73,24 +45,23 @@ def get_random_user_agent():
 def get_random_referrer():
     return random.choice(referrer_platforms)
 
-# Function to send a request and render JavaScript with retries and rotating proxies
+# Function to send a request and render JavaScript with retries
 def send_request_and_render(url, playwright, retries=3):
     for attempt in range(retries):
         try:
-            proxy = get_random_proxy()
             user_agent = get_random_user_agent()
             referrer = get_random_referrer()
-            browser = playwright.chromium.launch(headless=True, proxy={"server": proxy})
+            browser = playwright.chromium.launch(headless=True)
             context = browser.new_context(user_agent=user_agent)
             page = context.new_page()
             page.set_extra_http_headers({'Referer': referrer})
             page.goto(url, timeout=60000)  # Set a longer timeout for navigation
             page.wait_for_load_state("networkidle")  # Wait for the page to load completely
             
-            print(f"Page title: {page.title()}, Proxy: {proxy}, User-Agent: {user_agent}, Referrer: {referrer}")
+            print(f"Page title: {page.title()}, User-Agent: {user_agent}, Referrer: {referrer}")
             return page
         except Exception as e:
-            print(f"Request attempt {attempt + 1} with proxy {proxy} failed: {e}")
+            print(f"Request attempt {attempt + 1} failed: {e}")
             if attempt == retries - 1:
                 return None
             time.sleep(5)  # Wait before retrying
@@ -152,9 +123,5 @@ def simulate_traffic(url):
 
 # Main function
 if __name__ == "__main__":
-    try:
-        url = "https://www.highrevenuenetwork.com/iaqgtx69y1?key=14a1e46999747270c942f2634ef5306a"
-        simulate_traffic(url)
-    except Exception as e:
-        print(f"Error occurred: {e}", file=sys.stderr)
-        sys.exit(1)
+    url = "https://www.highrevenuenetwork.com/iaqgtx69y1?key=14a1e46999747270c942f2634ef5306a"
+    simulate_traffic(url)
