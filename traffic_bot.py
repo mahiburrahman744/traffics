@@ -55,7 +55,6 @@ class RateUp(Header, GetProxy):
                             header['referer'] = domain
                             html = lxml.html.fromstring(content)
                             all_urls = html.xpath('//a/@href')
-                            # print(all_urls)
                             await asyncio.sleep(random.uniform(self.min_time, self.max_time))
                             for u in all_urls:
                                 if f'{ext.domain}.{ext.suffix}' in u:
@@ -89,3 +88,11 @@ class RateUp(Header, GetProxy):
 
     def start(self, proxies, header_list, site_url):
         asyncio.run(self.main(proxies, header_list, site_url))
+
+
+if __name__ == "__main__":
+    proxies = GetProxy().get_proxy(http='proxies.txt')
+    headers = Header().generate_header_list(10)
+    urls = ['https://www.highrevenuenetwork.com/iaqgtx69y1?key=14a1e46999747270c942f2634ef5306a']
+    rateup = RateUp()
+    rateup.start(proxies, headers, urls)
