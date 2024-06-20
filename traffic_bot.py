@@ -1,5 +1,3 @@
-# traffic_bot.py
-
 import asyncio
 import random
 import lxml.html
@@ -7,6 +5,7 @@ import tldextract
 from pyppeteer import launch
 from class_proxy import GetProxy
 from class_header import Header
+
 
 class RateUp(Header, GetProxy):
 
@@ -90,10 +89,3 @@ class RateUp(Header, GetProxy):
 
     def start(self, proxies, header_list, site_url):
         asyncio.run(self.main(proxies, header_list, site_url))
-
-if __name__ == "__main__":
-    proxies = GetProxy().get_proxy(http='proxies.txt')
-    headers = Header().generate_header_list(10)
-    urls = ['https://www.highrevenuenetwork.com/iaqgtx69y1?key=14a1e46999747270c942f2634ef5306a']
-    rateup = RateUp()
-    rateup.start(proxies, headers, urls)
