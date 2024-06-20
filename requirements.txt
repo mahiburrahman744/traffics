@@ -1,2 +1,4 @@
-playwright
-fake-useragent
+httpx==0.22.0
+tldextract==3.1.2
+lxml==4.9.3
+fake-useragent==0.1.11
