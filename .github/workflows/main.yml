@@ -20,7 +20,7 @@ jobs:
           sudo apt-get install -y \
             libwoff1 \
             libopus0 \
-            libvpx6 \
+            libvpx5 \
             libevent-2.1-7 \
             gstreamer1.0-plugins-base \
             gstreamer1.0-gl \
